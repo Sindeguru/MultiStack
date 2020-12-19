@@ -36,73 +36,17 @@ public:
 
   int GetSize();
 
+
+  int SeekFreeSize();
+  int* SeekNewSizes();
+  void ReDate(int* sizes);
 };
 
 template<class T>
 inline void MultiStack<T>::StackRelocation(int index)
 {
-  int freeSize = 0;
-  for (int i = 0; i < stackCount; i++)
-    freeSize += stacks[i].GetSize() - stacks[i].GetCount();
-
-  if (freeSize == 0)
-    throw - 2;
-  
-  int count = int(floor(double(freeSize) / stackCount));
-  int* sizes = new int[this->stackCount];
-
-  for (int i = 0; i < (stackCount - 1); i++)
-    sizes[i] = stacks[i].GetCount() + count;
-
-  int c = stacks[stackCount - 1].GetCount();
-  sizes[this->stackCount - 1] = c+ (freeSize - (count * (this->stackCount)));
-
-  T** newData = new T * [stackCount];
- 
-  int k = 0;
-  for (int i = 0; i < stackCount; i++)
-  {
-    newData[i] = &(data[k]);
-    k = k + sizes[i];
-  }
-
-  for (int i = 0; i < stackCount; i++)
-  {
-    if (newData[i] == oldData[i])
-    {
-      stacks[i].SetData(newData[i], sizes[i], stacks[i].GetCount());
-    }
-    else if (newData[i] < oldData[i])
-    {
-      for (int j = 0; j < stacks[i].GetCount(); j++)
-      {
-        newData[i][j] = oldData[i][j];
-      }
-      stacks[i].SetData(newData[i], sizes[i], stacks[i].GetCount());
-    }
-    else if (newData[i] > oldData[i])
-    {
-      int k = i;
-      for (; k < stackCount; k++)
-        if (newData[k] > oldData[k])
-          continue;
-        else
-          break;
-      k--;
-
-      for (int s = k; s <= i; s--)
-      {
-        for (int j = stacks[i].GetCount() - 1; j >= 0; j--)
-        {
-          newData[s][j] = oldData[s][j];
-        }
-        stacks[s].SetData(newData[s], sizes[s], stacks[s].GetCount());
-      }
-    }
-  }
-  T** buf = oldData;
-  oldData = newData;
-  delete[] newData;
+  int* sizes = SeekNewSizes();
+  ReDate(sizes);
   delete[] sizes;
 }
 
@@ -209,9 +153,9 @@ template<class T>
 inline T MultiStack<T>::Get(int i)
 {
   if ((i >= 0) && (i <= stackCount))
-    throw - 1;
+    throw logic_error("invalid arg");
   if (stacks[i]->IsEmpty())
-    throw - 2;
+    throw logic_error("empty");
 
   T d = stacks[i].Get();
   return d;
@@ -237,6 +181,82 @@ template<class T>
 inline int MultiStack<T>::GetSize()
 {
   return length;
+}
+
+template<class T>
+inline int MultiStack<T>::SeekFreeSize()
+{
+  int freeSize = 0;
+  for (int i = 0; i < stackCount; i++)
+    freeSize += stacks[i].GetSize() - stacks[i].GetCount(); // search how much size is free
+  if (freeSize == 0)
+    throw logic_error("free size = 0");
+  return freeSize;
+}
+
+template<class T>
+inline int* MultiStack<T>::SeekNewSizes()
+{
+  int freeSize = SeekFreeSize();
+  int count = int(floor(double(freeSize) / stackCount));
+  int* sizes = new int[this->stackCount];
+  for (int i = 0; i < (stackCount - 1); i++)   // search sizes of stacks
+    sizes[i] = stacks[i].GetCount() + count;
+
+  int c = stacks[stackCount - 1].GetCount();
+  sizes[this->stackCount - 1] = c + (freeSize - (count * (this->stackCount)));
+  return sizes;
+}
+
+template<class T>
+inline void MultiStack<T>::ReDate(int* sizes)
+{
+  T** newData = new T * [stackCount];
+  int k = 0;
+  for (int i = 0; i < stackCount; i++) //input new data
+  {
+    newData[i] = &(data[k]);
+    k = k + sizes[i];
+  }
+
+  for (int i = 0; i < stackCount; i++) //redate
+  {
+    if (newData[i] == oldData[i])
+    {
+      stacks[i].SetData(newData[i], sizes[i], stacks[i].GetCount());
+    }
+    else if (newData[i] < oldData[i])
+    {
+      for (int j = 0; j < stacks[i].GetCount(); j++)
+      {
+        newData[i][j] = oldData[i][j];
+      }
+      stacks[i].SetData(newData[i], sizes[i], stacks[i].GetCount());
+    }
+    else if (newData[i] > oldData[i])
+    {
+      int k = i;
+      for (; k < stackCount; k++)
+        if (newData[k] > oldData[k])
+          continue;
+        else
+          break;
+      k--;
+
+      for (int s = k; s <= i; s--)
+      {
+        for (int j = stacks[i].GetCount() - 1; j >= 0; j--)
+        {
+          newData[s][j] = oldData[s][j];
+        }
+        stacks[s].SetData(newData[s], sizes[s], stacks[s].GetCount());
+      }
+    }
+  }
+  T** buf = oldData;
+  oldData = newData;
+  delete[] newData;
+
 }
 
 template<class T1>
